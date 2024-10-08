@@ -1,81 +1,122 @@
 import re
 import torch
 import json
-from torch.utils.data import Dataset
-from transformers import AutoTokenizer
+import numpy as np
+from datasets import Dataset
 
 # No answer token
 NO_ANSWER = '[NO_ANSWER]'
-# Dataset mode (train or dev)
-TRAIN_MODE = 0
-DEV_MODE = 1
 
 
 class SquadDataset(Dataset):
-    def __init__(self, train_path, dev_path, model_name="sentence-transformers/all-MiniLM-L6-v2", max_length=512):
-        self._train_path = train_path
-        self._dev_path = dev_path
-        self._train_data = self.process_data(self._train_path)
-        self._dev_data = self.process_data(self._dev_path)
-        self._tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self._max_length = max_length
-        self._mode = TRAIN_MODE
+    """
+    Class to abstract access and operations in the SQUAD dataset.
+    """
+    def __init__(self, train_path : str, test_path : str, train_size = 0, test_size = 0):
+        self._train_data = self._process_data(train_path, size = train_size)
+        self._test_data = self._process_data(test_path, size = test_size)
+        # size of each data split (0 to use full size)
+        self._train_size = train_size
+        self._test_size = test_size
 
-    def _process_data(self, path : str):
+
+    def _process_data(self, path : str, size : int) -> Dataset:
         """
         Process data from the JSON file in path.
         """
+
+        #if size <= 0, use dataset full size
+        if size <= 0 : 
+            size = np.inf
+
         # question strings
-        questions = [str] 
+        questions = [] 
         # sentence strings
-        sentences = [str]
+        sentences = []
         # sentence labels (1 for right answers and 0 otherwise)
-        labels = [int]
+        labels = []
         # context strings
-        contexts = [str]
+        contexts = []
+        # concatenated question+context strings
+        questions_and_contexts = []
 
         with open(path, "r", encoding="utf-8") as f:
             data_to_process = json.load(f)['data']
 
+        counter = 0
+        stop = False
+
         for data in data_to_process:
-                for paragraph in data['paragraphs']:
-                        context = paragraph['context']
-                        curr_sentences = self._extract_sentences(context) 
-                        # set the last sentence as the [NO_ANSWER] token
-                        curr_sentences.append(NO_ANSWER)
-                        
-                        # iterate over questions and answers of the paragraph
-                        for qas in paragraph['qas']:
-                                question_arr = [qas['question']] * len(curr_sentences)
-                                context_arr = [context] * len(curr_sentences)
-                                
-                                # whether the question dont have answers, set the [NO_ANSWER] token as the right answer
-                                if qas['is_impossible'] == True or len(qas['answers']) == 0:
-                                        labels = [False] * len(curr_sentences)
-                                        labels[-1] = True
-                                
-                                # whether the question have answers, iterave over the answers populating the dataset
-                                elif qas['is_impossible'] == False:
-                                        positions = [pos['answer_start'] for pos in qas['answers']]
-                                        # get the right sentences index over all sentences
-                                        right_answers_idx = [self._get_sentence_index(position, curr_sentences) for position in positions]
-                                        # all sentence labels
-                                        curr_labels = self._get_labels(curr_sentences, right_answers_idx)
-                                
-                                questions.extend(question_arr)
-                                sentences.extend(curr_sentences)
-                                labels.extend(curr_labels)
-                                contexts.extend(context_arr)
+            for paragraph in data['paragraphs']:
+                context = paragraph['context']
                 
+                # avoid broken contexts
+                if(context == ''):
+                        continue
+                
+                curr_sentences = self._extract_sentences(context) 
+                # set the last sentence as the [NO_ANSWER] token
+                curr_sentences.append(NO_ANSWER)
+                
+                # iterate over questions and answers of the paragraph
+                for qas in paragraph['qas']:
+                    if qas['is_impossible'] == True:
+                        # whether the question dont have answers, set the [NO_ANSWER] token as the right answer
+                        right_answers_idx = [len(curr_sentences) - 1]
+                    
+                    elif qas['is_impossible'] == False:
+                        # whether the question have answers, iterave over the answers populating the dataset
+                        right_answers_idx = [self._get_right_sentence(answer['text'], curr_sentences) for answer in qas['answers']]
+
+                    right_answers_set = set(right_answers_idx)
+                    
+                    # select only a handful of wrong sentences to mantain the dataset balanced
+                    wrong_answers_idx = [x for x in range(len(curr_sentences)) if x not in right_answers_set]
+                    num_right_answers = len(right_answers_idx)
+                    num_wrong_answers = len(wrong_answers_idx)
+                    
+                    # same number of wrong and right answers
+                    if(num_wrong_answers >= num_right_answers):
+                        wrong_answers_idx = wrong_answers_idx[:num_right_answers]
+
+                    # get sentences to be added in the dataset
+                    indices = right_answers_idx + wrong_answers_idx
+                    processed_sentences = [curr_sentences[i] for i in indices]
+                    
+                    curr_labels = self._get_labels(processed_sentences, num_right_answers)
+                    question_arr = [qas['question']] * len(processed_sentences)
+                    context_arr = [context] * len(processed_sentences)
+                    # save question and context as one string
+                    question_and_context = [qas['question'] + context] * len(processed_sentences)
+
+                    questions.extend(question_arr)
+                    sentences.extend(processed_sentences)
+                    labels.extend(curr_labels)
+                    contexts.extend(context_arr)
+                    questions_and_contexts.extend(question_and_context)
+
+                    # update counter and check if len equals size
+                    counter += len(processed_sentences)
+                    if counter >= size:
+                        stop = True
+                    
+                    #whether stop flag is high, strop processing
+                    if(stop): break
+                if(stop): break
+            if(stop): break
+                            
         dataset = {
                 'questions' : questions,
-                'sentences' :sentences,
-                'labels' :labels,
                 'contexts' : contexts,
-        }  
+                'questions_and_contexts' : questions_and_contexts,
+                'sentences' :sentences,
+                'labels' : [1.0 if label else -1.0 for label in labels] # 1 for right answers, -1 otherwise
+        }
+        dataset = Dataset.from_dict(dataset)
         return dataset 
 
-    def _extract_sentences(text : str) -> list[str]:
+
+    def _extract_sentences(self, text : str) -> list[str]:
         """
         Split text to sentences using '.', '!' and '?' as delimiters.
         """
@@ -84,74 +125,21 @@ class SquadDataset(Dataset):
         return sentences
 
 
-    def _get_sentence_index(pos : int, sentences : list[str]) -> int:
+    def _get_right_sentence(self, answer : str, sentences : list[str]) -> int:
         """
         Return the sentence index that matches the position (in the original context) pos. 
         """
-        curr_pos = 0
         for i, sentence in enumerate(sentences): 
-            if(pos <= curr_pos):
-                return i
-            curr_pos += len(sentence)
+            if answer in sentence:
+                return i            
+        return 0
 
-    def _get_labels(sentences : list[str], answers_index : list[int]) -> list[bool]: 
+    def _get_labels(self, sentences : list[str], num_right_answers : list[int]) -> list[bool]: 
         """
-        Return the labels of sentences. 1 for right answers and 0 for wrong answers. 
+        Return the labels of sentences. True for right answers and False for wrong answers. 
         """
         # initialize the return list
         labels = [False] * len(sentences)
-        for i in answers_index:
-            if(i == None):
-                continue
-            else:
-                labels[i] = True
+        labels[:num_right_answers] = [True] * num_right_answers
 
         return labels
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx : int):
-        # select data by the Dataset current mode (train or dev).
-        if(self._mode == TRAIN_MODE):
-            questions = self._train_data['questions']
-            sentences = self._train_data['sentences']
-            labels = self._train_data['labels']
-            contexts = self._train_data['contexts']
-
-        elif(self._mode == DEV_MODE):
-            questions = self._dev_data['questions']
-            sentences = self._dev_data['sentences']
-            labels = self._dev_data['labels']
-            contexts = self._dev_data['contexts']
-
-        question = questions[idx]
-        sentence = sentences[idx]
-        label = labels[idx]
-        context = contexts[idx]
-
-        # tokenize question + context as the model input
-        inputs = self._tokenizer(
-            question, context,
-            max_length=self._max_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt"
-        )
-
-        # tokenize the sentence
-        sentence_encoding = self.tokenizer(
-            sentence,
-            padding='max_length',
-            truncation=True,
-            max_length=self.max_length,
-            return_tensors='pt'
-        )
-
-        return {
-                    'input_ids': inputs['input_ids'].squeeze(),
-                    'attention_mask': inputs['attention_mask'].squeeze(),
-                    'sentence_input_ids': sentence_encoding['input_ids'].squeeze(),
-                    'sentence_attention_mask': sentence_encoding['attention_mask'].squeeze(),
-                    'label': torch.tensor(1 if label else -1)  # 1 for right answers, -1 otherwise
-                }
