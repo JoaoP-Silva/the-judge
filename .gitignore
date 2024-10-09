@@ -1,0 +1,10 @@
+# pycache
+**/__pycache__/**
+# vscode
+**.vscode
+# venv
+.venv/**
+# .o files
+*.o
+# .so files
+*.so
