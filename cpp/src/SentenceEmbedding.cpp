@@ -11,7 +11,7 @@ const std::vector<float> SentenceEmbedding::getEmbedding() const { return this->
 
 
 /*
-computeCosSimilarity
+computeBestAnswer
 
 description:    Computes the cosine similarity between the object embedding and every embedding in
                 the parameter vector.
@@ -21,7 +21,7 @@ args :          std::vector<SentenceEmbedding> senEmbVector - A vector of senten
 
 return :        A touple with the most similar object index and the sim value.
 */
-std::tuple<int, float> SentenceEmbedding::computeCosSimilarity(const std::vector<SentenceEmbedding>& senEmbVector)
+std::tuple<int, float> SentenceEmbedding::computeBestAnswer(const std::vector<SentenceEmbedding>& senEmbVector)
 {
     float best_val = std::numeric_limits<float>::max();
     int   best_idx = -1;

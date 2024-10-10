@@ -1,5 +1,4 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 #include "SentenceEmbedding.h"
 
@@ -15,6 +14,6 @@ PYBIND11_MODULE(SentenceEmbedding, m) {
         .def("getEmbedding", &SentenceEmbedding::getEmbedding)
 
         // compute cosine similarity from vectors
-        .def("computeCosSimilarity", &SentenceEmbedding::computeCosSimilarity,
+        .def("computeBestAnswer", &SentenceEmbedding::computeBestAnswer,
              py::arg("sentence_embeddings_vector"));
 }

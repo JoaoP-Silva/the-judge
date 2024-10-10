@@ -22,7 +22,7 @@ class SentenceEmbedding
         const std::vector<float> getEmbedding() const ;
         
         /*
-        computeCosSimilarity
+        computeBestAnswer
         
         description:    Computes the cosine similarity between the object embedding and every embedding in
                         the parameter vector.
@@ -32,7 +32,7 @@ class SentenceEmbedding
 
         return :        A touple with the most similar object index and the sim value.
          */
-        std::tuple<int, float> computeCosSimilarity(const std::vector<SentenceEmbedding>& senEmbVector);
+        std::tuple<int, float> computeBestAnswer(const std::vector<SentenceEmbedding>& senEmbVector);
 
     private:
         // Private methods

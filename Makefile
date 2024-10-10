@@ -4,7 +4,7 @@ INC_DIR = cpp/include
 
 MODULE_NAME = SentenceEmbedding
 BINDINGS = bindings
-OUTPUT = $(MODULE_NAME).so
+OUTPUT = model/$(MODULE_NAME).so
 
 # compiler flags
 CXX = g++
