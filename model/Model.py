@@ -15,6 +15,11 @@ from scipy.stats import pearsonr, spearmanr
 from SentenceEmbedding import SentenceEmbedding
 from Utils import extract_sentences
 
+
+# No answer token
+NO_ANSWER = '[NO_ANSWER]'
+
+
 class TrainModel(nn.Module):
     """
     Class to abstract SBERT model training operations.
@@ -22,12 +27,13 @@ class TrainModel(nn.Module):
 
     def __init__ (self, num_epochs : int, train_dataset : Dataset, test_dataset : Dataset, model_name='sentence-transformers/all-mpnet-base-v2',
                   max_length=512, batch_size = 16, save_path='model/models'):
+        
         super(TrainModel, self).__init__()
 
         self._num_epochs = num_epochs
         self._train_dataset = train_dataset
         self._test_dataset = test_dataset
-        self._model = SentenceTransformer(model_name)
+        self._model = self._load_model(model_name)
         self._max_length = max_length
         self._batch_size = batch_size
         self._save_path = save_path
@@ -35,6 +41,13 @@ class TrainModel(nn.Module):
         self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self._model.to(self._device)
 
+
+    def _load_model(self, path : str) -> SentenceTransformer:
+            """
+            Load the pre-trained SentenceTransformers located in the specified path.
+            """
+            return (SentenceTransformer(path))
+    
 
     def _train(self) ->  None:
         """
@@ -127,6 +140,9 @@ class InferenceModel(nn.Module):
     """
 
     def __init__(self, model_name : str):
+
+        super(InferenceModel, self).__init__()
+
         self._model = self._load_model(model_name)
 
 
@@ -140,7 +156,7 @@ class InferenceModel(nn.Module):
         """
         Encode a sentence using the loaded model. Returns a SentenceEmbedding object.
         """
-        embedding = self._model.encode(sentence).numpy()
+        embedding = self._model.encode(sentence).tolist()
         return SentenceEmbedding(sentence, embedding)
 
 
@@ -150,6 +166,9 @@ class InferenceModel(nn.Module):
         """
         # process the phrases and generate the SentenceEmbedding list
         sentences = extract_sentences(context)
+        #add the no answer token 
+        sentences.append(NO_ANSWER)
+
         sentences_embeddings = [self._encode(s) for s in sentences]
 
         # generate the input sentence_embedding
@@ -167,7 +186,7 @@ class InferenceModel(nn.Module):
         a context, and a list of correct answers.
         """
         # nparray with the model results. True for right answers and False otherwise.
-        hits = np.full(len(inference_dataset), 1.0, dtype=float)
+        hits = np.full(len(inference_dataset), 0.0, dtype=float)
         # nparray to save all similatiries to further evaluation 
         similarities = np.zeros(len(inference_dataset), dtype=float)
         

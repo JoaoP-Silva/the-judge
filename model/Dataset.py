@@ -4,7 +4,7 @@ import json
 import numpy as np
 from datasets import Dataset
 
-from Utils import extract_sentences
+from Utils import extract_sentences, get_right_sentence
 
 # No answer token
 NO_ANSWER = '[NO_ANSWER]'
@@ -65,11 +65,15 @@ class SquadDataset_training(Dataset):
                 for qas in paragraph['qas']:
                     if qas['is_impossible'] == True:
                         # whether the question dont have answers, set the [NO_ANSWER] token as the right answer
-                        right_answers_idx = [len(curr_sentences) - 1]
+                        right_answers_set = {len(curr_sentences) - 1}
+
                     
                     elif qas['is_impossible'] == False:
                         # whether the question have answers, iterave over the answers populating the dataset (ignore duplicates)
-                        right_answers_set = {self._get_right_sentence(answer['text'], curr_sentences) for answer in qas['answers']}
+                        right_answers_set = {get_right_sentence(answer['text'], curr_sentences) for answer in qas['answers']}
+
+                    # ignore broken answers
+                    if(len(right_answers_set) == 0) : continue
 
                     right_answers_idx = list(right_answers_set)
                     
@@ -117,16 +121,6 @@ class SquadDataset_training(Dataset):
         }
         dataset = Dataset.from_dict(dataset)
         return dataset 
-
-
-    def _get_right_sentence(self, answer : str, sentences : list[str]) -> int:
-        """
-        Return the sentence index that matches the position (in the original context) pos. 
-        """
-        for i, sentence in enumerate(sentences): 
-            if answer in sentence:
-                return i            
-        return 0
 
 
     def _get_labels(self, sentences : list[str], num_right_answers : list[int]) -> list[bool]: 
@@ -189,11 +183,14 @@ class SquadDataset_inference(Dataset):
                 for qas in paragraph['qas']:
                     if qas['is_impossible'] == True:
                         # whether the question dont have answers, set the [NO_ANSWER] token as the right answer
-                        right_answers_idx = [len(curr_sentences) - 1]
+                        right_answers_set = {len(curr_sentences) - 1}
                     
                     elif qas['is_impossible'] == False:
                         # whether the question have answers, iterave over the answers populating the dataset (ignore duplicates)
-                        right_answers_set = {self._get_right_sentence(answer['text'], curr_sentences) for answer in qas['answers']}
+                        right_answers_set = {get_right_sentence(answer['text'], curr_sentences) for answer in qas['answers']}
+                    
+                    # ignore broken answers
+                    if(len(right_answers_set) == 0) : continue
 
                     right_answers_idx = list(right_answers_set)
 
