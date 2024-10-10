@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import (
@@ -9,6 +10,7 @@ from sentence_transformers import (
 )
 from sentence_transformers.losses import CoSENTLoss
 from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator, SimilarityFunction
+from scipy.stats import pearsonr, spearmanr
 
 from SentenceEmbedding import SentenceEmbedding
 from Utils import extract_sentences
@@ -104,15 +106,28 @@ class TrainModel(nn.Module):
         """
         self._model.save_pretrained(self._save_path + '/trained_model')
 
+    # acess methods
+    def _set_train_dataset(self, dataset : Dataset) -> None:
+        """
+        Set the train dataset.
+        """
+        self._train_dataset = dataset
+
+    def _set_test_dataset(self, dataset : Dataset) -> None:
+        """
+        Set the test dataset
+        """
+        self._test_dataset = dataset
+
+
 
 class InferenceModel(nn.Module):
     """
     Class to abstract inference operations.
     """
 
-    def __init__(self, model_name : str, dataset : Dataset):
+    def __init__(self, model_name : str):
         self._model = self._load_model(model_name)
-        self._dataset = dataset
 
 
     def _load_model(self, path : str) -> SentenceTransformer:
@@ -144,3 +159,37 @@ class InferenceModel(nn.Module):
         i, sim = input.computeBestAnswer(sentences_embeddings)
         
         return (sentences[i], sim)
+
+    def _test_inference(self, inference_dataset : Dataset):
+        """
+        Compute and print the model performance on an inference dataset.
+        The dataset needs to be formatted so that each line has a question, 
+        a context, and a list of correct answers.
+        """
+        # nparray with the model results. True for right answers and False otherwise.
+        hits = np.full(len(inference_dataset), 1.0, dtype=float)
+        # nparray to save all similatiries to further evaluation 
+        similarities = np.zeros(len(inference_dataset), dtype=float)
+        
+        for i, example in enumerate(inference_dataset):
+            question = example['questions']
+            context = example['contexts']   
+            answers = example['answers']
+            # convert list to set to fast 'in' operation
+            right_answers = set(answers)
+
+            # run the model
+            model_answer, sim = self._compute_answer(question, context)
+            
+            # the model choose one of the rigth answers
+            if(model_answer in right_answers): hits[i] = True
+            # update similarities arr
+            similarities[i] = sim
+            
+        accuracy = np.sum(hits) / len(hits)
+        pearson_corr, _ = pearsonr(hits, similarities)
+        spearman_corr, _ = spearmanr(hits, similarities)
+
+        print(f"Model accuracy: {accuracy:.2f}")
+        print(f"Pearson corr: {pearson_corr:.2f}")
+        print(f"Spearman corr: {spearman_corr:.2f}")
