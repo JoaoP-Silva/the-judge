@@ -9,7 +9,6 @@ from sentence_transformers import (
     SentenceTransformerTrainingArguments
 )
 from sentence_transformers.losses import CoSENTLoss
-from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator, SimilarityFunction
 from scipy.stats import pearsonr, spearmanr
 
 from SentenceEmbedding import SentenceEmbedding
@@ -60,17 +59,9 @@ class TrainModel(nn.Module):
             num_train_epochs=self._num_epochs,
             per_device_train_batch_size=self._batch_size,
             per_device_eval_batch_size=self._batch_size,
+            eval_strategy="steps",
+            eval_steps=100,
         )
-
-        #eval the base model
-        evaluator = EmbeddingSimilarityEvaluator(
-                    sentences1=self._test_dataset['sentences1'],
-                    sentences2=self._test_dataset['sentences2'],
-                    scores=self._test_dataset['score'],
-                    main_similarity=SimilarityFunction.COSINE,
-                )
-        results = evaluator(self._model)
-        self._print_evaluation_results(results, 'base-model')
         
         # initialize trainer and train the model
         trainer = SentenceTransformerTrainer(
@@ -79,38 +70,9 @@ class TrainModel(nn.Module):
             train_dataset = self._train_dataset,
             eval_dataset = self._test_dataset,
             loss= CoSENTLoss,
-            evaluator=evaluator,
-            eval_strategy="steps",
-            eval_steps=100,
         )
         trainer.train()
-
-        # eval trained model
-        results = evaluator(self._model)
-        self._print_evaluation_results(results, 'trained-model')
-        
     
-    def _print_evaluation_results(self, results : dict[str, float], name : str) -> None:
-        """
-        Print an evaluator resuts dict.
-        """
-        print(f"EmbeddingSimilarityEvaluator : {name}")
-        
-        metrics = [
-            ("Cosine-Similarity", "cosine"),
-            ("Manhattan-Distance", "manhattan"),
-            ("Euclidean-Distance", "euclidean"),
-            ("Dot-Product-Similarity", "dot")
-        ]
-        
-        for name, key in metrics:
-            pearson_key = f"pearson_{key}"
-            spearman_key = f"spearman_{key}"
-            
-            pearson_value = results.get(pearson_key, 0)
-            spearman_value = results.get(spearman_key, 0)
-            
-            print(f"{name:<23}: Pearson: {pearson_value:.4f} Spearman: {spearman_value:.4f}")
 
         
     def _save_model(self) -> None:
@@ -139,11 +101,12 @@ class InferenceModel(nn.Module):
     Class to abstract inference operations.
     """
 
-    def __init__(self, model_name : str):
+    def __init__(self, model_name : str, no_answer_bound = np.inf):
 
         super(InferenceModel, self).__init__()
 
         self._model = self._load_model(model_name)
+        self._no_answer_bound = no_answer_bound
 
 
     def _load_model(self, path : str) -> SentenceTransformer:
@@ -208,7 +171,22 @@ class InferenceModel(nn.Module):
         accuracy = np.sum(hits) / len(hits)
         pearson_corr, _ = pearsonr(hits, similarities)
         spearman_corr, _ = spearmanr(hits, similarities)
+        mean_sim = similarities.mean() 
 
         print(f"Model accuracy: {accuracy:.2f}")
+        print(f"Mean similarity: {mean_sim:.2f}")
         print(f"Pearson corr: {pearson_corr:.2f}")
         print(f"Spearman corr: {spearman_corr:.2f}")
+
+    # access methods
+    def _set_model(self, model : SentenceTransformer) -> None:
+        """
+        Set the model for inference.
+        """
+        self._model = model
+
+    def _set_no_answer_bound(self, val : float) -> None:
+        """
+        Set the no answer bound value
+        """
+        self._no_answer_bound = val
