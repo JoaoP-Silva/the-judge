@@ -23,7 +23,7 @@ return :        A touple with the most similar object index and the sim value.
 */
 std::tuple<int, float> SentenceEmbedding::computeBestAnswer(const std::vector<SentenceEmbedding>& senEmbVector)
 {
-    float best_val = std::numeric_limits<float>::max();
+    float best_val = std::numeric_limits<float>::min();
     int   best_idx = -1;
 
     std::vector<float> my_embedding = this->_embedding;
@@ -36,7 +36,7 @@ std::tuple<int, float> SentenceEmbedding::computeBestAnswer(const std::vector<Se
         std::vector<float> candidate_embedding = it->getEmbedding();
         float val = this->cosine_similarity(my_embedding, candidate_embedding);
         
-        if(val < best_val){ best_val = val; best_idx = i;} 
+        if(val > best_val){ best_val = val; best_idx = i;} 
     }
     
     return std::make_tuple(best_idx, best_val);

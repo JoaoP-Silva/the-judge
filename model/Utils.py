@@ -31,6 +31,7 @@ def evaluate_model(model : SentenceTransformer, dataset : Dataset) -> None:
             )
     results = evaluator(model)
     print_evaluation_results(results, 'base-model')
+    
 
 def print_evaluation_results(results : dict[str, float], name : str) -> None:
     """

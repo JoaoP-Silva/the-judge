@@ -62,7 +62,7 @@ class TrainModel(nn.Module):
             eval_strategy="steps",
             eval_steps=100,
         )
-        
+
         # initialize trainer and train the model
         trainer = SentenceTransformerTrainer(
             model=self._model,
@@ -73,8 +73,7 @@ class TrainModel(nn.Module):
         )
         trainer.train()
     
-
-        
+    
     def _save_model(self) -> None:
         """
         Save the SentenceBert model in the specified path.
@@ -129,13 +128,11 @@ class InferenceModel(nn.Module):
         """
         # process the phrases and generate the SentenceEmbedding list
         sentences = extract_sentences(context)
-        #add the no answer token 
-        sentences.append(NO_ANSWER)
 
         sentences_embeddings = [self._encode(s) for s in sentences]
 
         # generate the input sentence_embedding
-        input_str = query + context
+        input_str = query
         input = self._encode(input_str)
         # compute answer
         i, sim = input.computeBestAnswer(sentences_embeddings)

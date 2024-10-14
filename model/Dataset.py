@@ -216,7 +216,7 @@ class SquadDataset_inference(Dataset):
                     no_answer_list.append(no_answer)
 
                     # update counter and check if len equals size
-                    counter += len(questions)
+                    counter += 1
                     if counter >= size:
                         stop = True
                     
