@@ -7,6 +7,8 @@
 #include <tuple>
 #include <limits>
 #include <cmath>
+#include <algorithm>
+		
 
 class SentenceEmbedding 
 {
@@ -33,6 +35,20 @@ class SentenceEmbedding
         return :        A touple with the most similar object index and the sim value.
          */
         std::tuple<int, float> computeBestAnswer(const std::vector<SentenceEmbedding>& senEmbVector);
+
+        /*
+        rankAnswers
+        
+        description:    Computes the cosine similarity between the object embedding and every embedding in
+                        the parameter vector.
+        
+        args :          std::vector<SentenceEmbedding> senEmbVector - A vector of sentenceEmbeddings
+                        to compute cosine similarity
+
+        return :        A vector of tuples sorted by similarity. Each tuple is in the form <int , float>
+                        with the object index and the cos sim value.
+         */
+        std::vector<std::tuple<int, float>> rankAnswers(const std::vector<SentenceEmbedding>& senEmbVector);
 
     private:
         // Private methods

@@ -1,5 +1,13 @@
 #include "SentenceEmbedding.h"
 
+
+/// Aux
+static bool sortbysec(const std::tuple<int, float>& a, 
+               const std::tuple<int, float>& b)
+{
+    return (std::get<1>(a) > std::get<1>(b));
+}
+
 // constructors
 SentenceEmbedding::SentenceEmbedding(const std::string& sen, const std::vector<float>& emb)
 {this->_sentence = sen; this->_embedding = emb;}
@@ -42,6 +50,44 @@ std::tuple<int, float> SentenceEmbedding::computeBestAnswer(const std::vector<Se
     return std::make_tuple(best_idx, best_val);
 }
 
+
+/*
+rankAnswers
+
+description:    Computes the cosine similarity between the object embedding and every embedding in
+                the parameter vector.
+
+args :          std::vector<SentenceEmbedding> senEmbVector - A vector of sentenceEmbeddings
+                to compute cosine similarity
+
+return :        A vector of tuples sorted by similarity. Each tuple is in the form <int , float>
+                with the object index and the cos sim value.
+    */
+std::vector<std::tuple<int, float>> SentenceEmbedding::rankAnswers(const std::vector<SentenceEmbedding>& senEmbVector)
+{
+    std::size_t num_sentences = senEmbVector.size();
+    
+    //initialize the return vector
+    std::vector<std::tuple<int, float>>answerVector(num_sentences, std::make_tuple(-1, 0.0));
+
+    std::vector<float> my_embedding = this->_embedding;
+    
+    int i = 0;
+    // iterate over all embeddings
+    for(auto it = senEmbVector.begin(); it < senEmbVector.end(); it++, i++)
+    {
+        std::vector<float> candidate_embedding = it->getEmbedding();
+        float val = this->cosine_similarity(my_embedding, candidate_embedding);
+        
+        // save val in return vector
+        answerVector[i] = std::make_tuple(i, val);
+    }
+
+    // sort the return vector
+    std::sort(answerVector.begin(), answerVector.end(), sortbysec);
+    
+    return answerVector;
+}   
 
 /*
 cosine_similarity

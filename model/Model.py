@@ -135,10 +135,26 @@ class InferenceModel(nn.Module):
         i, sim = input.computeBestAnswer(sentences_embeddings)
         answer = candidates[i]
         
-        # check if the answer 
+        # check if sim is higher than the no_answer_bound
         if(sim < self._no_answer_bound): answer = NO_ANSWER
 
         return (answer, sim)
+
+    def _rank_answers(self, query : str, candidates : list[str]) -> list[str] :
+        """
+        Rank all candidate answers for a given query by the cosine similarity value.
+        """
+        sentences_embeddings = [self._encode(s) for s in candidates]
+
+        # generate the input sentence_embedding
+        input_str = query
+        input = self._encode(input_str)
+        # compute answer
+        ranked_list = input.rankAnswers(sentences_embeddings)
+        
+        # get sorted list by returned indexes
+        res = [candidates[i] for (i, _) in ranked_list]
+        return res
 
     def _test_inference(self, inference_dataset : Dataset):
         """

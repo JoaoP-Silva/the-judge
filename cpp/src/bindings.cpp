@@ -16,5 +16,9 @@ PYBIND11_MODULE(SentenceEmbedding, m) {
 
         // compute cosine similarity from vectors
         .def("computeBestAnswer", &SentenceEmbedding::computeBestAnswer,
+             py::arg("sentence_embeddings_vector"))
+        
+        .def("rankAnswers", &SentenceEmbedding::rankAnswers,
              py::arg("sentence_embeddings_vector"));
+             
 }
