@@ -6,30 +6,42 @@ import sys
 model_path = os.path.join(os.getcwd(), 'model')
 sys.path.append(model_path)
 from Model import InferenceModel
-from Utils import extract_sentences
+from Utils import extract_sentences, extract_contexts
 
+# No answer token
+NO_ANSWER = '[NO_ANSWER]'
 
 app = Flask(__name__)
+
+# init the model
+model_path = 'model/models/trained_all_answers'
+no_answer_bound = 0.5
+model = InferenceModel(model_path, no_answer_bound)
 
 @app.route('/answers', methods=['POST'])
 def answer_queries():
     try:
         # get data from json in /answers
         data = request.get_json()
-        context = data['essay']
+        essay = data['essay']
         queries = data['queries']
 
-        # parsing context in sentences
-        sentences = extract_sentences(context)
-        
-        # init the model
-        model_path = 'model/models/trained_all_answers'
-        no_answer_bound = 0.3
-        model = InferenceModel(model_path, no_answer_bound)
+        # parsing the essay in contexts
+        contexts = extract_contexts(essay)
 
         answers = []
         for query in queries:
-            res, _ = model._compute_answer(query, sentences)
+            # rank contexts by similarity from the current query
+            ranked_contexts = model._rank_answers(query, contexts)
+
+            # iterate over all possible contexts untill find a valid answer
+            for context in ranked_contexts:
+                sentences = extract_sentences(context)
+                res, _ = model._compute_answer(query, sentences)
+                
+                # if the model generated a valid answer, stop iteration
+                if(res != NO_ANSWER): break
+
             answers.append(res)
 
         return jsonify({'answers': answers})
