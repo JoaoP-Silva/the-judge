@@ -122,22 +122,23 @@ class InferenceModel(nn.Module):
         return SentenceEmbedding(sentence, embedding)
 
 
-    def _compute_answer(self, query : str, context : str) -> tuple[str, int] :
+    def _compute_answer(self, query : str, candidates : list[str]) -> tuple[str, int] :
         """
-        Compute the answer for a given query and context.
+        Compute the answer for a given query from a list of candidates.
         """
-        # process the phrases and generate the SentenceEmbedding list
-        sentences = extract_sentences(context)
-
-        sentences_embeddings = [self._encode(s) for s in sentences]
+        sentences_embeddings = [self._encode(s) for s in candidates]
 
         # generate the input sentence_embedding
         input_str = query
         input = self._encode(input_str)
         # compute answer
         i, sim = input.computeBestAnswer(sentences_embeddings)
+        answer = candidates[i]
         
-        return (sentences[i], sim)
+        # check if the answer 
+        if(sim < self._no_answer_bound): answer = NO_ANSWER
+
+        return (answer, sim)
 
     def _test_inference(self, inference_dataset : Dataset):
         """
@@ -158,7 +159,8 @@ class InferenceModel(nn.Module):
             right_answers = set(answers)
 
             # run the model
-            model_answer, sim = self._compute_answer(question, context)
+            candidates = extract_sentences(context)
+            model_answer, sim = self._compute_answer(question, candidates)
             
             # the model choose one of the rigth answers
             if(model_answer in right_answers): hits[i] = True
