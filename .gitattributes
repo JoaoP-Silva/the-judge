@@ -1,0 +1,13 @@
+model/models/* filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/2_Normalize filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/config_sentence_transformers.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/modules.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/README.md filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/sentence_bert_config.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/tokenizer.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/1_Pooling filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/config.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/model.safetensors filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/special_tokens_map.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/tokenizer_config.json filter=lfs diff=lfs merge=lfs -text
+model/models/trained_all_answers/vocab.txt filter=lfs diff=lfs merge=lfs -text
