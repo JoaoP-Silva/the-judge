@@ -12,7 +12,7 @@ from sentence_transformers.losses import CoSENTLoss
 from scipy.stats import pearsonr, spearmanr
 
 from SentenceEmbedding import SentenceEmbedding
-from Utils import extract_sentences
+from Utils import extract_sentences, calculate_entropy
 
 
 # No answer token
@@ -121,12 +121,24 @@ class InferenceModel(nn.Module):
         embedding = self._model.encode(sentence).tolist()
         return SentenceEmbedding(sentence, embedding)
 
+    def _encode_many(self, sentences : list[str]) -> list[SentenceEmbedding]:
+        """
+        Encode sentences using the loaded model. Returns a list of SentenceEmbeddings.
+        """
+        res = []
+        embeddings = self._model.encode(sentences)
+
+        for i, line in enumerate(embeddings):
+            # iterate over each embedding creating the SentenceEmbedding cpp object.
+            res.append(SentenceEmbedding(sentences[i], line))
+        
+        return res
 
     def _compute_answer(self, query : str, candidates : list[str]) -> tuple[str, int] :
         """
         Compute the answer for a given query from a list of candidates.
         """
-        sentences_embeddings = [self._encode(s) for s in candidates]
+        sentences_embeddings = self._encode_many(candidates)
 
         # generate the input sentence_embedding
         input_str = query
@@ -140,20 +152,36 @@ class InferenceModel(nn.Module):
 
         return (answer, sim)
 
-    def _rank_answers(self, query : str, candidates : list[str]) -> list[str] :
+    def _rank_answers(self, query : str, candidates : list[str], entropy = False) -> list[str] :
         """
-        Rank all candidate answers for a given query by the cosine similarity value.
+        Rank all candidate answers for a given query by the cosine similarity value. The entropy flag indicates whether the
+        similarities values must be weighted by the sentences entropies.
         """
-        sentences_embeddings = [self._encode(s) for s in candidates]
+        sentences_embeddings = self._encode_many(candidates)
 
         # generate the input sentence_embedding
         input_str = query
         input = self._encode(input_str)
         # compute answer
         ranked_list = input.rankAnswers(sentences_embeddings)
-        
+
+        if(entropy):
+            # whether the entropyy flag is enabled, weight the similarity values by the strings entropy
+            idx_list = []
+            sim_list = []
+            for i, val in ranked_list:
+                idx_list.append(i)
+                sim_list.append(val)
+            
+            entropies = [calculate_entropy(s) for s in candidates]
+            weighted_values = [val * ent for val, ent in  zip(sim_list, entropies)]
+            
+            aux = zip(idx_list, weighted_values)
+            ranked_list = sorted(aux, key=lambda x: x[1], reverse=True)
+
         # get sorted list by returned indexes
         res = [candidates[i] for (i, _) in ranked_list]
+
         return res
 
     def _test_inference(self, inference_dataset : Dataset):

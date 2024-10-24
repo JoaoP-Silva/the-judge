@@ -32,12 +32,12 @@ def answer_queries():
         answers = []
         for query in queries:
             # rank contexts by similarity from the current query
-            ranked_contexts = model._rank_answers(query, contexts)
+            ranked_contexts = model._rank_answers(query, contexts, entropy = False)
 
             # iterate over all possible contexts untill find a valid answer
             for context in ranked_contexts:
                 sentences = extract_sentences(context)
-                res, _ = model._compute_answer(query, sentences)
+                res = model._rank_answers(query, sentences, entropy = True)[0]
                 
                 # if the model generated a valid answer, stop iteration
                 if(res != NO_ANSWER): break

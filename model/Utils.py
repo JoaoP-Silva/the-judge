@@ -2,6 +2,8 @@ import re
 from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator, SimilarityFunction
 from sentence_transformers import SentenceTransformer
 from datasets import Dataset
+from collections import Counter
+import numpy as np
 
 def extract_sentences(text : str,  min_length = 30) -> list[str]:
     """
@@ -85,3 +87,12 @@ def print_evaluation_results(results : dict[str, float], name : str) -> None:
         spearman_value = results.get(spearman_key, 0)
         
         print(f"{name:<23}: Pearson: {pearson_value:.4f} Spearman: {spearman_value:.4f}")
+
+
+def calculate_entropy(string : str) -> float:
+    words = string.split()
+    counts = Counter(words)
+    probabilities = np.array([count / len(words) for count in counts.values()])
+    entropy = -np.sum(probabilities * np.log2(probabilities + 1e-8))
+
+    return entropy
