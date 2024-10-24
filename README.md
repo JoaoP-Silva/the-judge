@@ -20,7 +20,7 @@ apt-get update && apt-get install -y \
     curl \
     && apt-get clean
 ```
-After installing system dependencies, run `pip install -r requirements.txt` to install python dependencies. To run the Flask server, execute from the root DIR `python server/app.py`.
+After installing system dependencies, run `pip install -r requirements.txt` to install python dependencies and `make` to compile the C++ code. To run the Flask server, execute from the root DIR `python server/app.py`.
 
 In both scenarios (Docker or manual setup), to make a default test query to the model just run `sh test.sh` from the root DIR. Check the [input_test.json](https://github.com/JoaoP-Silva/the-judge/blob/main/data/input_test.json) file for query details.
 
