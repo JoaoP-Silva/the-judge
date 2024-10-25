@@ -8,15 +8,11 @@ sys.path.append(model_path)
 from Model import InferenceModel
 from Utils import extract_sentences, extract_contexts
 
-# No answer token
-NO_ANSWER = '[NO_ANSWER]'
-
 app = Flask(__name__)
 
 # init the model
 model_path = 'model/models/trained_all_answers'
-no_answer_bound = 0.5
-model = InferenceModel(model_path, no_answer_bound)
+model = InferenceModel(model_path)
 
 @app.route('/answers', methods=['POST'])
 def answer_queries():
@@ -32,16 +28,9 @@ def answer_queries():
         answers = []
         for query in queries:
             # rank contexts by similarity from the current query
-            ranked_contexts = model._rank_answers(query, contexts, entropy = False)
-
-            # iterate over all possible contexts untill find a valid answer
-            for context in ranked_contexts:
-                sentences = extract_sentences(context)
-                res = model._rank_answers(query, sentences, entropy = True)[0]
-                
-                # if the model generated a valid answer, stop iteration
-                if(res != NO_ANSWER): break
-
+            context = model._rank_answers(query, contexts, entropy = False)[0]
+            sentences = extract_sentences(context)
+            res = model._rank_answers(query, sentences, entropy = True)[0]
             answers.append(res)
 
         return jsonify({'answers': answers})

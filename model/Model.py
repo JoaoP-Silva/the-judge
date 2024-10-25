@@ -100,7 +100,7 @@ class InferenceModel(nn.Module):
     Class to abstract inference operations.
     """
 
-    def __init__(self, model_name : str, no_answer_bound = np.inf):
+    def __init__(self, model_name : str, no_answer_bound = 0.0):
 
         super(InferenceModel, self).__init__()
 
@@ -134,9 +134,10 @@ class InferenceModel(nn.Module):
         
         return res
 
-    def _compute_answer(self, query : str, candidates : list[str]) -> tuple[str, int] :
+    def _compute_answer(self, query : str, candidates : list[str], entropy = False) -> tuple[str, int] :
         """
-        Compute the answer for a given query from a list of candidates.
+        Compute the answer for a given query from a list of candidates. The entropy flag indicates whether the
+        similarities values must be weighted by the sentences entropies.
         """
         sentences_embeddings = self._encode_many(candidates)
 
@@ -144,11 +145,29 @@ class InferenceModel(nn.Module):
         input_str = query
         input = self._encode(input_str)
         # compute answer
-        i, sim = input.computeBestAnswer(sentences_embeddings)
-        answer = candidates[i]
+        ranked_list = input.rankAnswers(sentences_embeddings)
         
-        # check if sim is higher than the no_answer_bound
-        if(sim < self._no_answer_bound): answer = NO_ANSWER
+        if(entropy):
+            # whether the entropy flag is enabled, weight the similarity values by the strings entropy
+            idx_list = []
+            sim_list = []
+            for i, val in ranked_list:
+                idx_list.append(i)
+                sim_list.append(val)
+            
+            sorted_candidates = [candidates[i] for i in idx_list]
+            entropies = [calculate_entropy(s) for s in sorted_candidates]
+            weighted_values = [val * ent for val, ent in  zip(sim_list, entropies)]
+            
+            aux = zip(idx_list, weighted_values)
+            ranked_list = sorted(aux, key=lambda x: x[1], reverse=True)
+        
+        i_answer, sim = ranked_list[0]
+        answer = candidates[i_answer]
+
+        if(not entropy):
+            # check if sim is higher than the no_answer_bound
+            if(sim < self._no_answer_bound): answer = NO_ANSWER
 
         return (answer, sim)
 
@@ -166,14 +185,15 @@ class InferenceModel(nn.Module):
         ranked_list = input.rankAnswers(sentences_embeddings)
 
         if(entropy):
-            # whether the entropyy flag is enabled, weight the similarity values by the strings entropy
+            # whether the entropy flag is enabled, weight the similarity values by the strings entropy
             idx_list = []
             sim_list = []
             for i, val in ranked_list:
                 idx_list.append(i)
                 sim_list.append(val)
             
-            entropies = [calculate_entropy(s) for s in candidates]
+            sorted_candidates = [candidates[i] for i in idx_list]
+            entropies = [calculate_entropy(s) for s in sorted_candidates]
             weighted_values = [val * ent for val, ent in  zip(sim_list, entropies)]
             
             aux = zip(idx_list, weighted_values)
