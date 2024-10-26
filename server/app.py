@@ -27,8 +27,9 @@ def answer_queries():
 
         answers = []
         for query in queries:
-            # rank contexts by similarity from the current query
+            # get the best context
             context = model._rank_answers(query, contexts, entropy = False)[0]
+            # get the answer from it
             sentences = extract_sentences(context)
             res = model._rank_answers(query, sentences, entropy = True)[0]
             answers.append(res)
